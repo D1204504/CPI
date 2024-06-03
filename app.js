@@ -18,26 +18,15 @@ app.use('/', indexRouter);
 app.use('/users', usersRouter);
 
 const sqlite3 = require('sqlite3').verbose();
-const db = new sqlite3.Database('db/sqlite.db', (err) => {
+const db = new sqlite3.Database('db/CPI.db', (err) => {
     if (err) {
         return console.error(err.message);
     }
     console.log('Connected to the SQlite database.');
 });
-//  撰寫 /api/ProductPrices 路由，使用 SQL 來查詢ProductPrices  所有的資料，回傳 json 格式的資料就好
-app.get('/api/ProductPrices', (req, res) => {
-    db.all('SELECT * FROM ProductPrices', (err, rows) => {
-        if (err) {
-            res.status(500).json({ error: err.message });
-            return;
-        }
-        res.json(rows);
-    });
-});
-// 撰寫 get /api? ProductName= 路由，使用 SQLite 查詢 ProductPrices中，某 ProductName 提供的所有資料
-app.get('/api/ProductPrices', (req, res) => {
-    const ProductName = req.query.ProductName;
-    db.all('SELECT * FROM ProductPrices WHERE ProductName = ?', [ProductName], (err, rows) => {
+
+app.get('/api/CPI', (req, res) => {
+    db.all('SELECT * FROM CPI', (err, rows) => {
         if (err) {
             res.status(500).json({ error: err.message });
             return;
@@ -46,50 +35,98 @@ app.get('/api/ProductPrices', (req, res) => {
     });
 });
 
-//撰寫 get /api/insert 路由，使用 SQLite 新增一筆資料 (ProductName, Specification, Date, Price)，到 ProductPrices 中
-app.get('/api/insert', (req, res) => {
-    const { ProductName, Specification, Date, Price } = req.query;
-    db.run('INSERT INTO ProductPrices (ProductName, Specification, Date, Price) VALUES (?, ?, ?, ?)', [ProductName, Specification, Date, Price], function (err) {
+app.get('/api/CPI', (req, res) => {
+    const Price = req.query.Price;
+    db.all('SELECT * FROM data WHERE CPI = ?', Price, (err, rows) => {
         if (err) {
             res.status(500).json({ error: err.message });
             return;
         }
-        res.json({ id: this.lastID });
+        res.json(rows);
     });
 });
-//撰寫 post /api/insert 路由，使用 SQLite 新增一筆資料 (ProductName, Specification, Date, Price)，ProductPrices 中，回傳文字的訊息，不要 json
-app.post('/api/insert', (req, res) => {
-    const { ProductName, Specification, Date, Price } = req.body;
-    db.run('INSERT INTO ProductPrices (ProductName, Specification, Date, Price) VALUES (?, ?, ?, ?)', [ProductName, Specification, Date, Price], function (err) {
+
+const ck_db = new sqlite3.Database('db/ck.db', (err) => {
+    if (err) {
+        return console.error(err.message);
+    }
+    console.log('Connected to the ck database.');
+});
+
+const pork_db = new sqlite3.Database('db/pork.db', (err) => {
+    if (err) {
+        return console.error(err.message);
+    }
+    console.log('Connected to the pork database.');
+});
+
+const egg_db = new sqlite3.Database('db/egg.db', (err) => {
+    if (err) {
+        return console.error(err.message);
+    }
+    console.log('Connected to the egg database.');
+});
+
+app.get('/api/chicken', (req, res) => {
+    ck_db.all('SELECT * FROM chicken_prices', (err, rows) => {
         if (err) {
-            res.status(500).send(err.message);
+            res.status(500).json({ error: err.message });
             return;
         }
-        res.send('新增成功');
+        res.json(rows);
     });
 });
 
-//將上面表單的資料，透過 fetch async await 來發送 POST 請求到 /api/insert ，並在成功後，用 p 顯示伺服器回傳的【純文字】訊息，不是 json
-app.post('/api/insert', async (req, res) => {
-    const { ProductName, Specification, Date, Price } = req.body;
-    const response = await fetch('/api/insert', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ ProductName, Specification, Date, Price }),
+app.get('/api/pork', (req, res) => {
+    pork_db.all('SELECT * FROM pork_prices', (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json(rows);
     });
-    const text = await response.text();
-    document.querySelector('p').textContent = text;
 });
 
+app.get('/api/egg', (req, res) => {
+    egg_db.all('SELECT * FROM egg_prices', (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json(rows);
+    });
+});
 
+// 留言板数据库
+const feedback_db = new sqlite3.Database('db/feedback.db', (err) => {
+    if (err) {
+        return console.error(err.message);
+    }
+    console.log('Connected to the feedback database.');
+});
 
+// 获取所有留言
+app.get('/api/feedback', (req, res) => {
+    feedback_db.all('SELECT * FROM feedback ORDER BY timestamp DESC', (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json(rows);
+    });
+});
 
-
-
-
-
-
+// 提交新留言
+app.post('/api/feedback', (req, res) => {
+    const { subject, message, nickname } = req.body;
+    const query = `INSERT INTO feedback (subject, message, nickname) VALUES (?, ?, ?)`;
+    feedback_db.run(query, [subject, message, nickname], function(err) {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.status(201).json({ id: this.lastID });
+    });
+});
 
 module.exports = app;
